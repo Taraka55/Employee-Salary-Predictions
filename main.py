@@ -1,0 +1,171 @@
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import joblib
+from io import BytesIO, StringIO
+
+# Load model and columns
+model = joblib.load("best_model.pkl")
+model_columns = joblib.load("model_columns.pkl")
+
+# Language support
+def get_translations(lang):
+    translations = {
+        "en": {
+            "title": "Employee Salary Classification",
+            "age": "Age",
+            "gender": "Gender",
+            "workclass": "Workclass",
+            "education": "Education",
+            "occupation": "Occupation",
+            "hours": "Hours per Week",
+            "predict": "🎯 Predict Salary",
+            "predicted_income": "Predicted Income",
+            "upload_csv": "Upload CSV for Bulk Predictions",
+            "download": "⬇️ Download Results",
+        },
+        "hi": {
+            "title": "कर्मचारी वेतन वर्गीकरण",
+            "age": "आयु",
+            "gender": "लिंग",
+            "workclass": "कार्य वर्ग",
+            "education": "शिक्षा",
+            "occupation": "पेशा",
+            "hours": "प्रति सप्ताह घंटे",
+            "predict": "🎯 वेतन का पूर्वानुमान करें",
+            "predicted_income": "अनुमानित आय",
+            "upload_csv": "CSV अपलोड करें (थोक भविष्यानुमान)",
+            "download": "⬇️ परिणाम डाउनलोड करें",
+        },
+        "te": {
+            "title": "ఉద్యోగి జీతం వర్గీకరణ",
+            "age": "వయస్సు",
+            "gender": "లింగం",
+            "workclass": "పని తరగతి",
+            "education": "విద్య",
+            "occupation": "ఉద్యోగం",
+            "hours": "వారం గంటలు",
+            "predict": "🎯 జీతంని ఊహించండి",
+            "predicted_income": "అంచనా జీతం",
+            "upload_csv": "CSV అప్లోడ్ (బల్క్ ప్రిడిక్షన్)",
+            "download": "⬇️ ఫలితాలన్ని డాఉన్లోడ్ చెయండి",
+        },
+    }
+    return translations.get(lang, translations["en"])
+
+# Attractive Header with Icon and Subtitle and Animation
+st.markdown('<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">', unsafe_allow_html=True)
+st.markdown("""
+    <style>
+    @keyframes fadeInUp {
+        from {opacity: 0; transform: translateY(20px);}
+        to {opacity: 1; transform: translateY(0);}
+    }
+    .header-container {
+        display: flex;
+        align-items: center;
+        animation: fadeInUp 1s ease-out;
+    }
+    .header-icon {
+        font-size: 80px;
+        color: #4CAF50;
+        margin-right: 20px;
+    }
+    .header-text h1 {
+        color: #2E86C1;
+        font-size: 48px;
+        margin: 0;
+        animation: fadeInUp 1.2s ease-out;
+    }
+    .header-text p {
+        color: #555;
+        font-size: 22px;
+        margin-top: 5px;
+        animation: fadeInUp 1.4s ease-out;
+    }
+    </style>
+    <div class='header-container'>
+        <i class="fas fa-robot header-icon"></i>
+        <div class='header-text'>
+            <h1>AI-Powered Salary Predictor 💼</h1>
+            <p>Empower your decisions with AI</p>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
+
+# Language selection below heading
+lang_choice = st.selectbox("🌐 Select Language / भाषा / భాష", ["en", "hi", "te"], format_func=lambda x: {"en": "English", "hi": "Hindi", "te": "Telugu"}[x])
+lang = get_translations(lang_choice)
+
+# CSS for animated Predict Salary button
+st.markdown("""
+    <style>
+    .stButton>button {
+        background: linear-gradient(to right, #2196F3, #21CBF3);
+        color: white;
+        font-weight: bold;
+        border-radius: 10px;
+        padding: 10px 24px;
+        transition: all 0.3s ease-in-out;
+        margin-top: 10px;
+    }
+    .stButton>button:hover {
+        transform: scale(1.05);
+        box-shadow: 0px 0px 8px rgba(0,0,0,0.2);
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Tabs Layout
+manual_tab, upload_tab = st.tabs(["📋 Manual Input", "📁 Bulk Upload"])
+
+# --- Manual Input Tab ---
+with manual_tab:
+    st.subheader("🔎 Manual Input")
+    age = st.number_input(lang["age"], 18, 100)
+    gender = st.selectbox(lang["gender"], ["Male ♂️", "Female ♀️"])
+    workclass = st.selectbox(lang["workclass"], ["Private 🏢", "Self-emp 🔧", "Government 🏛️"])
+    education = st.selectbox(lang["education"], ["Bachelors 🎓", "HS-grad 🏫", "Masters 🎓"])
+    occupation = st.selectbox(lang["occupation"], ["Tech-support 💻", "Craft-repair 🔨", "Sales 💼"])
+    hours_per_week = st.slider(lang["hours"], 1, 100, 40)
+
+    if st.button(lang["predict"]):
+        input_data = {
+            "age": age,
+            "gender": gender.split(" ")[0],
+            "workclass": workclass.split(" ")[0],
+            "education": education.split(" ")[0],
+            "occupation": occupation.split(" ")[0],
+            "hours_per_week": hours_per_week
+        }
+        input_df = pd.DataFrame([input_data])
+        input_encoded = pd.get_dummies(input_df)
+        input_encoded = input_encoded.reindex(columns=model_columns, fill_value=0)
+
+        prediction = model.predict(input_encoded)[0]
+        st.success(f"{lang['predicted_income']}: **{prediction}**")
+
+        # Download single result
+        result_csv = input_df.copy()
+        result_csv["prediction"] = prediction
+        st.download_button(
+            label="⬇️ Download This Result",
+            data=result_csv.to_csv(index=False),
+            file_name="single_prediction.csv",
+            mime="text/csv"
+        )
+
+        st.subheader("📊 Visual Insights")
+        fig1 = px.pie(input_df, names='workclass', title="Workclass Distribution", color_discrete_sequence=['#1E88E5'])
+        fig1.update_layout(template='plotly_white', title_font=dict(size=20, color='#1E88E5'))
+        st.plotly_chart(fig1, use_container_width=True)
+
+        fig2 = px.bar(input_df, x='occupation', y='hours_per_week', title="Occupation vs Weekly Hours", color_discrete_sequence=['#1E88E5'])
+        fig2.update_layout(template='plotly_white', title_font=dict(size=20, color='#1E88E5'))
+        st.plotly_chart(fig2, use_container_width=True)
+
+        fig3 = px.histogram(input_df, x='age', nbins=10, title="Age Distribution", color_discrete_sequence=['#1E88E5'])
+        fig3.update_layout(template='plotly_white', title_font=dict(size=20, color='#1E88E5'))
+        st.plotly_chart(fig3, use_container_width=True)
+
+# --- Bulk Upload Tab ---
