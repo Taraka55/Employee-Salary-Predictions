@@ -1,0 +1,13 @@
+streamlit
+pandas
+scikit-learn
+joblib
+cloudpickle
+plotly
+googletrans==4.0.0-rc1
+streamlit-extras
+streamlit>=1.35.0
+pandas
+joblib
+plotly
+streamlit-extras
